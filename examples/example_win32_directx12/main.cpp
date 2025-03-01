@@ -16,23 +16,14 @@
 #include <tchar.h>
 #include <string>
 #include <iostream>
-#include <coroutine>
-//#include <boost/asio.hpp>
-//#include <boost/beast.hpp>
-#include <winrt/Windows.Foundation.h>
-#include <winrt/Windows.Networking.Sockets.h>
-#include <winrt/Windows.Storage.Streams.h>
+#include <boost/asio.hpp>
+#include <boost/beast.hpp>
 
-using namespace winrt;
-using namespace Windows::Networking::Sockets;
-using namespace Windows::Storage::Streams;
-
-
-//namespace beast = boost::beast;     // from <boost/beast.hpp>
-//namespace http = beast::http;       // from <boost/beast/http.hpp>
-//namespace websocket = beast::websocket; // from <boost/beast/websocket.hpp>
-//namespace net = boost::asio;        // from <boost/asio.hpp>
-//using tcp = net::ip::tcp;           // from <boost/asio/ip/tcp.hpp>
+namespace beast = boost::beast;     // from <boost/beast.hpp>
+namespace http = beast::http;       // from <boost/beast/http.hpp>
+namespace websocket = beast::websocket; // from <boost/beast/websocket.hpp>
+namespace net = boost::asio;        // from <boost/asio.hpp>
+using tcp = net::ip::tcp;           // from <boost/asio/ip/tcp.hpp>
 
 #pragma comment(lib, "Ws2_32.lib")
 
@@ -205,137 +196,57 @@ int main(int, char**)
     // Our state 
     windows currentWindow = windows::Demo;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+    // The io_context is required for all I/O
+    net::io_context ioc;
 
-    //WSADATA wsaData;
-    //SOCKET ConnectSocket = INVALID_SOCKET;
-    //struct addrinfo* result = NULL, * ptr = NULL, hints;
-    //const char* sendbuf = "Hello from client";
-    //char recvbuf[512];
-    //int iResult;
-    //int recvbuflen = 512;
+    // These objects perform our I/O
+    tcp::resolver resolver(ioc);
+    websocket::stream<tcp::socket> ws(ioc);
+    // This buffer will hold the incoming message
+    beast::flat_buffer buffer;
 
-    //// Initialize Winsock
-    //iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
-    //if (iResult != 0) {
-    //    std::cerr << "WSAStartup failed: " << iResult << std::endl;
-    //    return 1;
-    //}
-
-    //ZeroMemory(&hints, sizeof(hints));
-    //hints.ai_family = AF_UNSPEC;
-    //hints.ai_socktype = SOCK_STREAM;
-    //hints.ai_protocol = IPPROTO_TCP;
-
-    //// Resolve the server address and port
-    //iResult = getaddrinfo(SIM_ADDRESS, PORT, &hints, &result);
-    //if (iResult != 0) {
-    //    std::cerr << "getaddrinfo failed: " << iResult << std::endl;
-    //    WSACleanup();
-    //    return 1;
-    //}
-
-    //// Attempt to connect to an address until one succeeds
-    //for (ptr = result; ptr != NULL; ptr = ptr->ai_next) {
-    //    ConnectSocket = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
-    //    if (ConnectSocket == INVALID_SOCKET) {
-    //        std::cerr << "Error at socket(): " << WSAGetLastError() << std::endl;
-    //        WSACleanup();
-    //        return 1;
-    //    }
-
-    //    iResult = connect(ConnectSocket, ptr->ai_addr, (int)ptr->ai_addrlen);
-    //    if (iResult == SOCKET_ERROR) {
-    //        closesocket(ConnectSocket);
-    //        ConnectSocket = INVALID_SOCKET;
-    //        continue;
-    //    }
-    //    break;
-    //}
-
-    //freeaddrinfo(result);
-
-    //if (ConnectSocket == INVALID_SOCKET) {
-    //    std::cerr << "Unable to connect to server!" << std::endl;
-    //    WSACleanup();
-    //    return 1;
-    //}
-
-    //// Send an initial buffer
-    //iResult = send(ConnectSocket, sendbuf, (int)strlen(sendbuf), 0);
-    //if (iResult == SOCKET_ERROR) {
-    //    std::cerr << "send failed: " << WSAGetLastError() << std::endl;
-    //    closesocket(ConnectSocket);
-    //    WSACleanup();
-    //    return 1;
-    //}
-
-    //std::cout << "Bytes Sent: " << iResult << std::endl;
-
-    //try {
-    //    // The io_context is required for all I/O
-    //    net::io_context ioc;
-
-    //    // These objects perform our I/O
-    //    tcp::resolver resolver(ioc);
-    //    websocket::stream<tcp::socket> ws(ioc);
-
-    //    // Look up the domain name
-    //    auto const results = resolver.resolve("echo.websocket.org", "80");
-
-    //    // Make the connection on the IP address we get from a lookup
-    //    net::connect(ws.next_layer(), results.begin(), results.end());
-
-    //    // Perform the WebSocket handshake
-    //    ws.handshake("echo.websocket.org", "/");
-
-    //    // Send a message
-    //    ws.write(net::buffer(std::string("Hello, WebSocket!")));
-
-    //    // This buffer will hold the incoming message
-    //    beast::flat_buffer buffer;
-
-    //    // Read a message into our buffer
-    //    ws.read(buffer);
-
-    //    // Print the message
-    //    std::cout << beast::make_printable(buffer.data()) << std::endl;
-
-    //    // Close the WebSocket connection
-    //    ws.close(websocket::close_code::normal);
-    //}
-    //catch (std::exception const& e) {
-    //    std::cerr << "Error: " << e.what() << std::endl;
-    //    return EXIT_FAILURE;
-    //}
     try {
-        init_apartment();
+        // Look up the domain name
+        auto const results = resolver.resolve(SIM_ADDRESS, PORT);
 
-        MessageWebSocket webSocket;
-        boolean connected = false;
+        // Make the connection on the IP address we get from a lookup
+        net::connect(ws.next_layer(), results.begin(), results.end());
+        cout << "1";
 
-        webSocket.MessageReceived([](MessageWebSocket const&, MessageWebSocketMessageReceivedEventArgs const& args) {
-            DataReader reader = args.GetDataReader();
-            reader.UnicodeEncoding(UnicodeEncoding::Utf8);
-            auto message = reader.ReadString(reader.UnconsumedBufferLength());
-            std::wcout << "Message received: " << message.c_str() << std::endl;
-            });
+        // Perform the WebSocket handshake
+        ws.handshake(SIM_ADDRESS + ":" + PORT, "/");
+        cout << "2";
 
-        while (!connected) {
-            try {
-                webSocket.ConnectAsync(winrt::Windows::Foundation::Uri(L"wss://127.0.0.1:5810/nt/test")).get();
-                std::wcout << L"Connected to WebSocket server!" << std::endl;
-                connected = true;
-                // Keep the application running to receive messages
-                std::cin.get();
-            }
-            catch (const std::exception& ex) {
-                std::wcerr << L"WebSocket connection failed: " << ex.what() << std::endl;
-            }
-            //std::wcerr << L"WebSocket connection failed: " << ex.message().c_str() << std::endl;
-        }
-    } catch (const std::exception& ex) {
-        std::wcerr << L"WebSocket connection failed: " << ex.what() << std::endl;
+        // Send a message
+        //ws.write(net::buffer(std::string("Hello, WebSocket!")));
+
+        // Read a message into our buffer
+        ws.read(buffer);
     }
+    catch (beast::system_error const& se) {
+        if (se.code() == websocket::error::closed) {
+            std::cerr << "WebSocket connection closed: " << se.what() << std::endl;
+        }
+        else {
+            std::cerr << "Error: " << se.what() << std::endl;
+        }
+    }
+    catch (std::exception const& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    try {
+        // Print the message
+        std::cout << beast::make_printable(buffer.data()) << std::endl;
+    }
+    catch (std::exception const& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    // Close the WebSocket connection
+    //ws.close(websocket::close_code::normal);
 
     // Main loop
     bool done = false;
