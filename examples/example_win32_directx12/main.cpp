@@ -22,6 +22,9 @@
 #include <iostream>
 #include <random>
 #include <sstream>
+#include <chrono>
+#include <unordered_set>
+#include <iomanip>
 
 // WINRT (socket programming)
 #include <winrt/Windows.Foundation.h>
@@ -239,6 +242,64 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 //    }
 //}
 
+std::unordered_set<int64_t> used_ids;
+
+std::string generateRandomUUID() {
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<int> dis(0, 15);
+    std::uniform_int_distribution<int> dis2(8, 11);
+
+    std::stringstream ss;
+    ss << std::hex;
+    for (int i = 0; i < 8; i++) {
+        ss << dis(gen);
+    }
+    ss << "-";
+    for (int i = 0; i < 4; i++) {
+        ss << dis(gen);
+    }
+    ss << "-4";
+    for (int i = 0; i < 3; i++) {
+        ss << dis(gen);
+    }
+    ss << "-";
+    ss << dis2(gen);
+    for (int i = 0; i < 3; i++) {
+        ss << dis(gen);
+    }
+    ss << "-";
+    for (int i = 0; i < 12; i++) {
+        ss << dis(gen);
+    }
+    return ss.str();
+}
+
+int64_t generateUid() {
+    // Generate a random UUID
+    std::string uuid_str = generateRandomUUID();
+
+    // Calculate the sum of the ASCII values of the characters in the UUID string
+    int64_t id_num = 0;
+    for (char c : uuid_str) {
+        id_num += static_cast<int64_t>(c);
+    }
+
+    // Add the current timestamp in milliseconds to the sum
+    auto now = std::chrono::system_clock::now();
+    auto now_ms = std::chrono::time_point_cast<std::chrono::milliseconds>(now);
+    int64_t timestamp_ms = now_ms.time_since_epoch().count();
+    int64_t uid = id_num + timestamp_ms;
+
+    // Ensure the UID is unique
+    if (used_ids.find(uid) != used_ids.end()) {
+        return generateUid();
+    }
+
+    used_ids.insert(uid);
+    return uid;
+}
+
 void handleBinaryMessage(const std::vector<uint8_t>& data) {
     try {
         std::stringstream ss;
@@ -335,114 +396,10 @@ int main(int, char**)
     windows currentWindow = windows::Demo;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
-    //WSADATA wsaData;
-    //SOCKET ConnectSocket = INVALID_SOCKET;
-    //struct addrinfo* result = NULL, * ptr = NULL, hints;
-    //const char* sendbuf = "Hello from client";
-    //char recvbuf[512];
-    //int iResult;
-    //int recvbuflen = 512;
-
-    //// Initialize Winsock
-    //iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
-    //if (iResult != 0) {
-    //    std::cerr << "WSAStartup failed: " << iResult << std::endl;
-    //    return 1;
-    //}
-
-    //ZeroMemory(&hints, sizeof(hints));
-    //hints.ai_family = AF_UNSPEC;
-    //hints.ai_socktype = SOCK_STREAM;
-    //hints.ai_protocol = IPPROTO_TCP;
-
-    //// Resolve the server address and port
-    //iResult = getaddrinfo(SIM_ADDRESS, PORT, &hints, &result);
-    //if (iResult != 0) {
-    //    std::cerr << "getaddrinfo failed: " << iResult << std::endl;
-    //    WSACleanup();
-    //    return 1;
-    //}
-
-    //// Attempt to connect to an address until one succeeds
-    //for (ptr = result; ptr != NULL; ptr = ptr->ai_next) {
-    //    ConnectSocket = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
-    //    if (ConnectSocket == INVALID_SOCKET) {
-    //        std::cerr << "Error at socket(): " << WSAGetLastError() << std::endl;
-    //        WSACleanup();
-    //        return 1;
-    //    }
-
-    //    iResult = connect(ConnectSocket, ptr->ai_addr, (int)ptr->ai_addrlen);
-    //    if (iResult == SOCKET_ERROR) {
-    //        closesocket(ConnectSocket);
-    //        ConnectSocket = INVALID_SOCKET;
-    //        continue;
-    //    }
-    //    break;
-    //}
-
-    //freeaddrinfo(result);
-
-    //if (ConnectSocket == INVALID_SOCKET) {
-    //    std::cerr << "Unable to connect to server!" << std::endl;
-    //    WSACleanup();
-    //    return 1;
-    //}
-
-    //// Send an initial buffer
-    //iResult = send(ConnectSocket, sendbuf, (int)strlen(sendbuf), 0);
-    //if (iResult == SOCKET_ERROR) {
-    //    std::cerr << "send failed: " << WSAGetLastError() << std::endl;
-    //    closesocket(ConnectSocket);
-    //    WSACleanup();
-    //    return 1;
-    //}
-
-    //std::cout << "Bytes Sent: " << iResult << std::endl;
-
-    //try {
-    //    // The io_context is required for all I/O
-    //    net::io_context ioc;
-
-    //    // These objects perform our I/O
-    //    tcp::resolver resolver(ioc);
-    //    websocket::stream<tcp::socket> ws(ioc);
-
-    //    // Look up the domain name
-    //    auto const results = resolver.resolve("echo.websocket.org", "80");
-
-    //    // Make the connection on the IP address we get from a lookup
-    //    net::connect(ws.next_layer(), results.begin(), results.end());
-
-    //    // Perform the WebSocket handshake
-    //    ws.handshake("echo.websocket.org", "/");
-
-    //    // Send a message
-    //    ws.write(net::buffer(std::string("Hello, WebSocket!")));
-
-    //    // This buffer will hold the incoming message
-    //    beast::flat_buffer buffer;
-
-    //    // Read a message into our buffer
-    //    ws.read(buffer);
-
-    //    // Print the message
-    //    std::cout << beast::make_printable(buffer.data()) << std::endl;
-
-    //    // Close the WebSocket connection
-    //    ws.close(websocket::close_code::normal);
-    //}
-    //catch (std::exception const& e) {
-    //    std::cerr << "Error: " << e.what() << std::endl;
-    //    return EXIT_FAILURE;
-    //}
     init_apartment();
 
-    // Generate UUID
-    std::default_random_engine generator;
-    std::uniform_int_distribution<int> distribution(1, 9999999999);
-    // TODO: temporary
-    int UUID = distribution(generator);
+    // Generate a unique UID
+    int64_t UUID = generateUid();
 
     // Important variables
     std::string serverBaseAddr = "127.0.0.1";
@@ -461,21 +418,21 @@ int main(int, char**)
     // Attach the MessageReceived event handler
     webSocket.MessageReceived([](MessageWebSocket const&, MessageWebSocketMessageReceivedEventArgs const& args) {
         DataReader reader = args.GetDataReader();
-        reader.UnicodeEncoding(UnicodeEncoding::Utf8);
-        auto message = reader.ReadString(reader.UnconsumedBufferLength());
-        std::string messageStr = winrt::to_string(message);
-        cout << messageStr;
+        reader.ByteOrder(ByteOrder::LittleEndian);
+        uint32_t length = reader.UnconsumedBufferLength();
+        std::vector<uint8_t> data(length);
+        reader.ReadBytes(data);
 
-        if (messageStr[0] == '{') {
-            // Handle JSON message
-            //handleJsonMessage(messageStr);
+        std::stringstream ss;
+        ss << std::hex << std::setfill('0');
+        for (uint8_t byte : data) {
+            ss << std::setw(2) << static_cast<int>(byte);
         }
-        else {
-            // Handle binary message
-            std::vector<uint8_t> data(messageStr.begin(), messageStr.end());
-            handleBinaryMessage(data);
-        }
+
+        std::string binaryDataStr = ss.str();
+        std::cout << "Received binary data: " << binaryDataStr << std::endl;
         });
+
 
     // Connect to the WebSocket server
     try {
@@ -483,10 +440,10 @@ int main(int, char**)
         std::wcout << L"Connected to WebSocket server!" << std::endl;
 
         // Send a test message to the server
-        DataWriter writer(webSocket.OutputStream());
+        /*DataWriter writer(webSocket.OutputStream());
         writer.WriteString(L"Hello, server!");
         writer.StoreAsync().get();
-        std::wcout << L"Test message sent to server." << std::endl;
+        std::wcout << L"Test message sent to server." << std::endl;*/
 
         // Keep the application running to receive messages
         std::cin.get();
