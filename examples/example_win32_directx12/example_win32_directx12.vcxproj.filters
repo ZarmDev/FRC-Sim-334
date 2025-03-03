@@ -24,6 +24,16 @@
     <ClInclude Include="..\..\backends\imgui_impl_win32.h">
       <Filter>sources</Filter>
     </ClInclude>
+    <ClInclude Include="json.hpp" />
+    <ClInclude Include="mpack-common.h">
+      <Filter>sources</Filter>
+    </ClInclude>
+    <ClInclude Include="mpack-writer.h">
+      <Filter>sources</Filter>
+    </ClInclude>
+    <ClInclude Include="mpack.h">
+      <Filter>sources</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\imgui.cpp">
@@ -48,6 +58,11 @@
       <Filter>imgui</Filter>
     </ClCompile>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="mpack-common.c" />
+    <ClCompile Include="mpack_writer.c" />
+    <ClCompile Include="mpack.cpp">
+      <Filter>sources</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\README.txt" />

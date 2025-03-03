@@ -37,6 +37,12 @@
 #include <boost/serialization/vector.hpp>
 #include <boost/serialization/string.hpp>
 
+// JSON/Msgpack
+#include "json.hpp"
+#include "mpack.h"
+
+using json = nlohmann::json;
+
 using namespace winrt;
 using namespace Windows::Networking::Sockets;
 using namespace Windows::Storage::Streams;
@@ -328,6 +334,104 @@ void handleBinaryMessage(const std::vector<uint8_t>& data) {
     }
 }
 
+void receiveMessages(StreamWebSocket& webSocket) {
+    try {
+        DataReader reader(webSocket.InputStream());
+        reader.InputStreamOptions(InputStreamOptions::Partial);
+        try {
+            uint32_t bytesRead = reader.LoadAsync(1024).get();
+            if (bytesRead == 0) {
+                //break;
+            }
+            std::vector<uint8_t> data(bytesRead);
+            reader.ReadBytes(data);
+            handleBinaryMessage(data);
+        }
+        catch (const winrt::hresult_error& ex) {
+            std::wcerr << L"WebSocket receive failed: " << ex.message().c_str() << std::endl;
+            std::wcerr << L"HRESULT: " << std::hex << ex.code() << std::endl;
+        }
+        catch (const std::exception& ex) {
+            std::wcerr << L"WebSocket receive failed: " << ex.what() << std::endl;
+        }
+    }
+    catch (const winrt::hresult_error& ex) {
+        std::wcerr << L"WebSocket receive failed: " << ex.message().c_str() << std::endl;
+        std::wcerr << L"HRESULT: " << std::hex << ex.code() << std::endl;
+    }
+    catch (const std::exception& ex) {
+        std::wcerr << L"WebSocket receive failed: " << ex.what() << std::endl;
+    }
+}
+
+void sendMessage(StreamWebSocket& webSocket) {
+    json jsonObject;
+    //jsonObject["topicId"] = "FMSInfo";
+    /*auto now = std::chrono::system_clock::now();
+    auto now_ms = std::chrono::time_point_cast<std::chrono::milliseconds>(now);
+    auto epoch = now_ms.time_since_epoch();
+    int64_t milliseconds = epoch.count();*/
+    /*jsonObject["serverTime"] = milliseconds;
+    jsonObject["typeInfo"] = 0;
+    jsonObject["value"] = "true";*/
+
+    json smallerObject;
+
+    json options;
+    options["prefix"] = true;
+    options["all"] = true;
+    options["periodic"] = 0.02;
+
+    vector<string> topics = { "FMSInfo" };
+    smallerObject["topics"] = topics;
+    smallerObject["subuid"] = generateRandomUUID();
+    smallerObject["options"] = options;
+
+    jsonObject["method"] = "subscribe";
+    jsonObject["params"] = smallerObject;
+
+    // Serialize the JSON object to MessagePack format
+    std::stringstream buffer;
+    msgpack::pack(buffer, jsonObject);
+
+    // Get the binary data
+    std::string binaryData = buffer.str();
+
+    // Send the binary data using DataWriter
+    DataWriter writer(webSocket.OutputStream());
+    writer.WriteBytes(array_view<const uint8_t>(reinterpret_cast<const uint8_t*>(binaryData.data()), binaryData.size()));
+    writer.StoreAsync().get();
+    std::wcout << L"Binary JSON message sent to server." << std::endl;
+}
+
+void connectWebSocket(StreamWebSocket& webSocket, const std::string& serverAddr) {
+    bool connected = false;
+    while (!connected) {
+        try {
+            webSocket.ConnectAsync(winrt::Windows::Foundation::Uri(winrt::to_hstring(serverAddr))).get();
+            std::wcout << L"Connected to WebSocket server!" << std::endl;
+
+            sendMessage(webSocket);
+
+            std::thread receiveThread(receiveMessages, std::ref(webSocket));
+            receiveThread.detach();
+
+            connected = true;
+        }
+        catch (const winrt::hresult_error& ex) {
+            if (ex.code() != 0x80072efd) {
+                std::wcerr << L"WebSocket connection failed: " << ex.message().c_str() << std::endl;
+                std::wcerr << L"HRESULT: " << std::hex << ex.code() << std::endl;
+            }
+            std::this_thread::sleep_for(std::chrono::seconds(5));
+        }
+        catch (const std::exception& ex) {
+            std::wcerr << L"WebSocket connection failed: " << ex.what() << std::endl;
+            std::this_thread::sleep_for(std::chrono::seconds(5));
+        }
+    }
+}
+
 // Main code
 int main(int, char**)
 {
@@ -406,17 +510,18 @@ int main(int, char**)
     int port = 5810;
     std::string prefix = "ws://";
     std::ostringstream oss;
-    oss << prefix << serverBaseAddr << ":" << port << "/nt/FRC-sim_" << UUID;
+    oss << prefix << serverBaseAddr << ":" << port << "/nt/FRC-sim-" << UUID;
     std::string serverAddr = oss.str();
 
     // Create a MessageWebSocket object
-    MessageWebSocket webSocket;
+    StreamWebSocket webSocket;
 
     // Set the protocol for the WebSocket connection
     webSocket.Control().SupportedProtocols().Append(L"v4.1.networktables.first.wpi.edu");
 
     // Attach the MessageReceived event handler
-    webSocket.MessageReceived([](MessageWebSocket const&, MessageWebSocketMessageReceivedEventArgs const& args) {
+    /*webSocket.MessageReceived([](MessageWebSocket const&, MessageWebSocketMessageReceivedEventArgs const& args) {
+        cout << "MESSAGE RECEIVED";
         DataReader reader = args.GetDataReader();
         reader.ByteOrder(ByteOrder::LittleEndian);
         uint32_t length = reader.UnconsumedBufferLength();
@@ -431,30 +536,10 @@ int main(int, char**)
 
         std::string binaryDataStr = ss.str();
         std::cout << "Received binary data: " << binaryDataStr << std::endl;
-        });
+        });*/
 
-
-    // Connect to the WebSocket server
-    try {
-        webSocket.ConnectAsync(winrt::Windows::Foundation::Uri(winrt::to_hstring(serverAddr))).get();
-        std::wcout << L"Connected to WebSocket server!" << std::endl;
-
-        // Send a test message to the server
-        /*DataWriter writer(webSocket.OutputStream());
-        writer.WriteString(L"Hello, server!");
-        writer.StoreAsync().get();
-        std::wcout << L"Test message sent to server." << std::endl;*/
-
-        // Keep the application running to receive messages
-        std::cin.get();
-    }
-    catch (const winrt::hresult_error& ex) {
-        std::wcerr << L"WebSocket connection failed: " << ex.message().c_str() << std::endl;
-        std::wcerr << L"HRESULT: " << std::hex << ex.code() << std::endl;
-    }
-    catch (const std::exception& ex) {
-        std::wcerr << L"WebSocket connection failed: " << ex.what() << std::endl;
-    }
+    connectWebSocket(webSocket, serverAddr);
+    std::cin.get();
 
     return 0;
 

@@ -100,7 +100,7 @@
     <ClCompile>
       <WarningLevel>Level4</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>..\..;..\..\backends;%(AdditionalIncludeDirectories);D:\DEPENDENCIES\boost-1.87.0</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..;..\..\backends;%(AdditionalIncludeDirectories);D:\DEPENDENCIES\boost-1.87.0;D:\DEPENDENCIES\mpack-1.1.1\src\mpack</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
       <LanguageStandard>stdcpp20</LanguageStandard>
@@ -156,6 +156,10 @@
     <ClInclude Include="..\..\imgui_internal.h" />
     <ClInclude Include="..\..\backends\imgui_impl_dx12.h" />
     <ClInclude Include="..\..\backends\imgui_impl_win32.h" />
+    <ClInclude Include="json.hpp" />
+    <ClInclude Include="mpack-common.h" />
+    <ClInclude Include="mpack-writer.h" />
+    <ClInclude Include="mpack.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\imgui.cpp" />
@@ -166,6 +170,9 @@
     <ClCompile Include="..\..\backends\imgui_impl_dx12.cpp" />
     <ClCompile Include="..\..\backends\imgui_impl_win32.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="mpack-common.c" />
+    <ClCompile Include="mpack.cpp" />
+    <ClCompile Include="mpack_writer.c" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\misc\debuggers\imgui.natstepfilter" />
