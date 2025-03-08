@@ -4,11 +4,6 @@
 #include <winrt/Windows.Storage.Streams.h>
 #include <winrt/Windows.Foundation.Collections.h>
 
-// Boost
-/*#include <boost/archive/text_oarchive.hpp>
-#include <boost/archive/text_iarchive.hpp>
-#include <boost/serialization/vector.hpp>*/ // Include this header for vector serialization
-
 // Standard library
 #include <fstream>
 #include <string>
@@ -16,6 +11,12 @@
 #include <vector>
 #include <variant>
 #include <stdexcept>
+
+// Cereal
+#include <cereal/archives/binary.hpp>
+#include <cereal/types/vector.hpp>
+#include <cereal/types/string.hpp>
+#include <cereal/types/variant.hpp>
 
 using namespace winrt;
 using namespace Windows::Networking::Sockets;
@@ -85,15 +86,13 @@ private:
     int serverTime;
     std::vector<int> typeInfo;
     NTVariant value;
-    // To allow the class to be serialized by boost
-    friend class boost::serialization::access;
+
+    // To allow the class to be serialized by cereal
+    friend class cereal::access;
 
     template<class Archive>
-    void serialize(Archive& ar, const unsigned int version) {
-        ar& topicId;
-        ar& serverTime;
-        ar& typeInfo;
-        ar& value;
+    void serialize(Archive& ar) {
+        ar(topicId, serverTime, typeInfo, value);
     }
 public:
     BinaryMessageData(int topicId, int serverTime, std::vector<int> typeInfo,
@@ -143,22 +142,22 @@ int getTopicID(string key) {
     return 0;
 }
 
-void Server::updateValue(string key, NTVariant value) {
+void Server::updateValue(string key, NTVariant value, MessageWebSocket& webSocket) {
     vector<int> type_info = NetworkTablesTypeInfo::get_network_tables_type_from_object(value);
     int topic_id = getTopicID(key);
     BinaryMessageData binary_data = BinaryMessageData(topic_id, getCurrentTimeMillis(), type_info, value);
 
     // Serialize the object to a string
     std::ostringstream oss;
-    boost::archive::text_oarchive oa(oss);
-    oa << binary_data;
+    cereal::BinaryOutputArchive oa(oss);
+    oa(binary_data);
     std::string serialized_message = oss.str();
 
     // Convert the serialized string to a byte array
     std::vector<uint8_t> byte_array(serialized_message.begin(), serialized_message.end());
 
     // Create a DataWriter to write to the OutputStream
-    winrt::Windows::Storage::Streams::DataWriter writer(webSocket.OutputStream());
+    DataWriter writer(webSocket.OutputStream());
 
     // Write the byte array to the DataWriter
     writer.WriteBytes(byte_array);
@@ -183,9 +182,11 @@ void Server::server_init() {
     oss << prefix << serverBaseAddr << ":" << port << "/nt/FRC-sim_" << UUID;
     std::string serverAddr = oss.str();
 
+    MessageWebSocket webSocket;
+
     // Set the protocol for the WebSocket connection
     webSocket.Control().SupportedProtocols().Append(L"v4.1.networktables.first.wpi.edu");
-
+    
     // Attach the MessageReceived event handler
     webSocket.MessageReceived([](MessageWebSocket const&, MessageWebSocketMessageReceivedEventArgs const& args) {
         DataReader reader = args.GetDataReader();
@@ -204,7 +205,7 @@ void Server::server_init() {
             std::cout << data[0];
             //handleBinaryMessage(data);
         }
-        });
+    });
 
     try {
         std::vector<int> typeInfo = NetworkTablesTypeInfo::kBoolean;
@@ -219,7 +220,7 @@ void Server::server_init() {
     try {
         // Connect to the WebSocket server
         auto connectOperation = webSocket.ConnectAsync(winrt::Windows::Foundation::Uri(winrt::to_hstring(serverAddr)));
-        connectOperation.Completed([this](auto const& asyncInfo, auto const asyncStatus) {
+        connectOperation.Completed([this, &webSocket](auto const& asyncInfo, auto const asyncStatus) {
             try {
                 if (asyncStatus == winrt::Windows::Foundation::AsyncStatus::Completed) {
                     asyncInfo.GetResults();
@@ -259,4 +260,5 @@ void Server::server_init() {
 void Server::serverCleanup() {
     //closesocket(ConnectSocket);
     //WSACleanup();
+    //webSocket.Close();
 }

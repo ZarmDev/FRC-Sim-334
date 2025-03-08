@@ -100,7 +100,7 @@
     <ClCompile>
       <WarningLevel>Level4</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>..\..;..\..\backends;%(AdditionalIncludeDirectories);D:\DEPENDENCIES\boost-1.87.0;D:\DEPENDENCIES\mpack-1.1.1\src\mpack</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..;..\..\backends;D:\DEPENDENCIES\cereal-1.3.2\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
       <LanguageStandard>stdcpp20</LanguageStandard>

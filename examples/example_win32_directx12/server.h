@@ -29,11 +29,9 @@ class Server {
 public:
     void server_init();
     void serverCleanup();
-    void updateValue(std::string key, NTVariant value);
+    void updateValue(std::string key, NTVariant value, MessageWebSocket& webSocket);
 private:
     vector<NTVariant> entries;
-    // Create a MessageWebSocket object
-    MessageWebSocket webSocket;
 };
 
 #endif // SERVER_H
