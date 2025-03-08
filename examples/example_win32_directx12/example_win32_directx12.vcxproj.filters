@@ -25,13 +25,10 @@
       <Filter>sources</Filter>
     </ClInclude>
     <ClInclude Include="json.hpp" />
-    <ClInclude Include="mpack-common.h">
+    <ClInclude Include="server.h">
       <Filter>sources</Filter>
     </ClInclude>
-    <ClInclude Include="mpack-writer.h">
-      <Filter>sources</Filter>
-    </ClInclude>
-    <ClInclude Include="mpack.h">
+    <ClInclude Include="app.h">
       <Filter>sources</Filter>
     </ClInclude>
   </ItemGroup>
@@ -58,11 +55,8 @@
       <Filter>imgui</Filter>
     </ClCompile>
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="mpack-common.c" />
-    <ClCompile Include="mpack_writer.c" />
-    <ClCompile Include="mpack.cpp">
-      <Filter>sources</Filter>
-    </ClCompile>
+    <ClCompile Include="server.cpp" />
+    <ClCompile Include="app.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\README.txt" />

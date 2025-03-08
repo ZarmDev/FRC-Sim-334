@@ -17,44 +17,17 @@
 #include <dxgi1_4.h>
 #include <tchar.h>
 
+// Custom
+#include "app.h"
+#include "server.h"
+
 // Standard library
 #include <string>
 #include <iostream>
 #include <random>
 #include <sstream>
-#include <chrono>
-#include <unordered_set>
-#include <iomanip>
 
-// WINRT (socket programming)
-#include <winrt/Windows.Foundation.h>
-#include <winrt/Windows.Networking.Sockets.h>
-#include <winrt/Windows.Storage.Streams.h>
-#include <winrt/Windows.Foundation.Collections.h>
-
-// BOOST
-#include <boost/archive/binary_iarchive.hpp>
-#include <boost/serialization/vector.hpp>
-#include <boost/serialization/string.hpp>
-
-// JSON/Msgpack
-#include "json.hpp"
-#include "mpack.h"
-
-using json = nlohmann::json;
-
-using namespace winrt;
-using namespace Windows::Networking::Sockets;
-using namespace Windows::Storage::Streams;
-using namespace Windows::Foundation::Collections;
-
-//namespace beast = boost::beast;     // from <boost/beast.hpp>
-//namespace http = beast::http;       // from <boost/beast/http.hpp>
-//namespace websocket = beast::websocket; // from <boost/beast/websocket.hpp>
-//namespace net = boost::asio;        // from <boost/asio.hpp>
-//using tcp = net::ip::tcp;           // from <boost/asio/ip/tcp.hpp>
-
-#pragma comment(lib, "Ws2_32.lib")
+// ???
 
 #ifdef _DEBUG
 #define DX12_ENABLE_DEBUG_LAYER
@@ -144,10 +117,6 @@ static D3D12_CPU_DESCRIPTOR_HANDLE  g_mainRenderTargetDescriptor[APP_NUM_BACK_BU
 const string USB_ADDRESS = "172.22.11.2";
 const string SIM_ADDRESS = "127.0.0.1";
 const string PORT = "5810";
-enum windows {
-    Demo,
-    Test
-};
 struct TopicData {
     int topicID;
     int64_t timestamp_us;
@@ -248,189 +217,33 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 //    }
 //}
 
-std::unordered_set<int64_t> used_ids;
-
-std::string generateRandomUUID() {
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution<int> dis(0, 15);
-    std::uniform_int_distribution<int> dis2(8, 11);
-
-    std::stringstream ss;
-    ss << std::hex;
-    for (int i = 0; i < 8; i++) {
-        ss << dis(gen);
-    }
-    ss << "-";
-    for (int i = 0; i < 4; i++) {
-        ss << dis(gen);
-    }
-    ss << "-4";
-    for (int i = 0; i < 3; i++) {
-        ss << dis(gen);
-    }
-    ss << "-";
-    ss << dis2(gen);
-    for (int i = 0; i < 3; i++) {
-        ss << dis(gen);
-    }
-    ss << "-";
-    for (int i = 0; i < 12; i++) {
-        ss << dis(gen);
-    }
-    return ss.str();
-}
-
-int64_t generateUid() {
-    // Generate a random UUID
-    std::string uuid_str = generateRandomUUID();
-
-    // Calculate the sum of the ASCII values of the characters in the UUID string
-    int64_t id_num = 0;
-    for (char c : uuid_str) {
-        id_num += static_cast<int64_t>(c);
-    }
-
-    // Add the current timestamp in milliseconds to the sum
-    auto now = std::chrono::system_clock::now();
-    auto now_ms = std::chrono::time_point_cast<std::chrono::milliseconds>(now);
-    int64_t timestamp_ms = now_ms.time_since_epoch().count();
-    int64_t uid = id_num + timestamp_ms;
-
-    // Ensure the UID is unique
-    if (used_ids.find(uid) != used_ids.end()) {
-        return generateUid();
-    }
-
-    used_ids.insert(uid);
-    return uid;
-}
-
-void handleBinaryMessage(const std::vector<uint8_t>& data) {
-    try {
-        std::stringstream ss;
-        ss.write(reinterpret_cast<const char*>(data.data()), data.size());
-        boost::archive::binary_iarchive ia(ss);
-
-        std::vector<TopicData> rxArray;
-        ia >> rxArray;
-
-        for (const auto& unpackedData : rxArray) {
-            if (unpackedData.topicID >= 0) {
-                // Handle new topic data
-                std::cout << "[NT4] New topic data: " << unpackedData.topicID << ", " << unpackedData.timestamp_us << ", " << unpackedData.typeIdx << ", " << unpackedData.value << std::endl;
-            }
-            else if (unpackedData.topicID == -1) {
-                // Handle receive timestamp
-                std::cout << "[NT4] Receive timestamp: " << unpackedData.timestamp_us << ", " << unpackedData.value << std::endl;
-            }
-            else {
-                std::cout << "[NT4] Ignoring binary data - invalid topic id " << unpackedData.topicID << std::endl;
-            }
-        }
-    }
-    catch (const std::exception& ex) {
-        std::cerr << "[NT4] Binary parsing error: " << ex.what() << std::endl;
-    }
-}
-
-void receiveMessages(StreamWebSocket& webSocket) {
-    try {
-        DataReader reader(webSocket.InputStream());
-        reader.InputStreamOptions(InputStreamOptions::Partial);
-        try {
-            uint32_t bytesRead = reader.LoadAsync(1024).get();
-            if (bytesRead == 0) {
-                //break;
-            }
-            std::vector<uint8_t> data(bytesRead);
-            reader.ReadBytes(data);
-            handleBinaryMessage(data);
-        }
-        catch (const winrt::hresult_error& ex) {
-            std::wcerr << L"WebSocket receive failed: " << ex.message().c_str() << std::endl;
-            std::wcerr << L"HRESULT: " << std::hex << ex.code() << std::endl;
-        }
-        catch (const std::exception& ex) {
-            std::wcerr << L"WebSocket receive failed: " << ex.what() << std::endl;
-        }
-    }
-    catch (const winrt::hresult_error& ex) {
-        std::wcerr << L"WebSocket receive failed: " << ex.message().c_str() << std::endl;
-        std::wcerr << L"HRESULT: " << std::hex << ex.code() << std::endl;
-    }
-    catch (const std::exception& ex) {
-        std::wcerr << L"WebSocket receive failed: " << ex.what() << std::endl;
-    }
-}
-
-void sendMessage(StreamWebSocket& webSocket) {
-    json jsonObject;
-    //jsonObject["topicId"] = "FMSInfo";
-    /*auto now = std::chrono::system_clock::now();
-    auto now_ms = std::chrono::time_point_cast<std::chrono::milliseconds>(now);
-    auto epoch = now_ms.time_since_epoch();
-    int64_t milliseconds = epoch.count();*/
-    /*jsonObject["serverTime"] = milliseconds;
-    jsonObject["typeInfo"] = 0;
-    jsonObject["value"] = "true";*/
-
-    json smallerObject;
-
-    json options;
-    options["prefix"] = true;
-    options["all"] = true;
-    options["periodic"] = 0.02;
-
-    vector<string> topics = { "FMSInfo" };
-    smallerObject["topics"] = topics;
-    smallerObject["subuid"] = generateRandomUUID();
-    smallerObject["options"] = options;
-
-    jsonObject["method"] = "subscribe";
-    jsonObject["params"] = smallerObject;
-
-    // Serialize the JSON object to MessagePack format
-    std::stringstream buffer;
-    msgpack::pack(buffer, jsonObject);
-
-    // Get the binary data
-    std::string binaryData = buffer.str();
-
-    // Send the binary data using DataWriter
-    DataWriter writer(webSocket.OutputStream());
-    writer.WriteBytes(array_view<const uint8_t>(reinterpret_cast<const uint8_t*>(binaryData.data()), binaryData.size()));
-    writer.StoreAsync().get();
-    std::wcout << L"Binary JSON message sent to server." << std::endl;
-}
-
-void connectWebSocket(StreamWebSocket& webSocket, const std::string& serverAddr) {
-    bool connected = false;
-    while (!connected) {
-        try {
-            webSocket.ConnectAsync(winrt::Windows::Foundation::Uri(winrt::to_hstring(serverAddr))).get();
-            std::wcout << L"Connected to WebSocket server!" << std::endl;
-
-            sendMessage(webSocket);
-
-            std::thread receiveThread(receiveMessages, std::ref(webSocket));
-            receiveThread.detach();
-
-            connected = true;
-        }
-        catch (const winrt::hresult_error& ex) {
-            if (ex.code() != 0x80072efd) {
-                std::wcerr << L"WebSocket connection failed: " << ex.message().c_str() << std::endl;
-                std::wcerr << L"HRESULT: " << std::hex << ex.code() << std::endl;
-            }
-            std::this_thread::sleep_for(std::chrono::seconds(5));
-        }
-        catch (const std::exception& ex) {
-            std::wcerr << L"WebSocket connection failed: " << ex.what() << std::endl;
-            std::this_thread::sleep_for(std::chrono::seconds(5));
-        }
-    }
-}
+//void handleBinaryMessage(const std::vector<uint8_t>& data) {
+//    try {
+//        std::stringstream ss;
+//        ss.write(reinterpret_cast<const char*>(data.data()), data.size());
+//        boost::archive::binary_iarchive ia(ss);
+//
+//        std::vector<TopicData> rxArray;
+//        ia >> rxArray;
+//
+//        for (const auto& unpackedData : rxArray) {
+//            if (unpackedData.topicID >= 0) {
+//                // Handle new topic data
+//                std::cout << "[NT4] New topic data: " << unpackedData.topicID << ", " << unpackedData.timestamp_us << ", " << unpackedData.typeIdx << ", " << unpackedData.value << std::endl;
+//            }
+//            else if (unpackedData.topicID == -1) {
+//                // Handle receive timestamp
+//                std::cout << "[NT4] Receive timestamp: " << unpackedData.timestamp_us << ", " << unpackedData.value << std::endl;
+//            }
+//            else {
+//                std::cout << "[NT4] Ignoring binary data - invalid topic id " << unpackedData.topicID << std::endl;
+//            }
+//        }
+//    }
+//    catch (const std::exception& ex) {
+//        std::cerr << "[NT4] Binary parsing error: " << ex.what() << std::endl;
+//    }
+//}
 
 // Main code
 int main(int, char**)
@@ -500,46 +313,9 @@ int main(int, char**)
     windows currentWindow = windows::Demo;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
-    init_apartment();
-
-    // Generate a unique UID
-    int64_t UUID = generateUid();
-
-    // Important variables
-    std::string serverBaseAddr = "127.0.0.1";
-    int port = 5810;
-    std::string prefix = "ws://";
-    std::ostringstream oss;
-    oss << prefix << serverBaseAddr << ":" << port << "/nt/FRC-sim-" << UUID;
-    std::string serverAddr = oss.str();
-
-    // Create a MessageWebSocket object
-    StreamWebSocket webSocket;
-
-    // Set the protocol for the WebSocket connection
-    webSocket.Control().SupportedProtocols().Append(L"v4.1.networktables.first.wpi.edu");
-
-    // Attach the MessageReceived event handler
-    /*webSocket.MessageReceived([](MessageWebSocket const&, MessageWebSocketMessageReceivedEventArgs const& args) {
-        cout << "MESSAGE RECEIVED";
-        DataReader reader = args.GetDataReader();
-        reader.ByteOrder(ByteOrder::LittleEndian);
-        uint32_t length = reader.UnconsumedBufferLength();
-        std::vector<uint8_t> data(length);
-        reader.ReadBytes(data);
-
-        std::stringstream ss;
-        ss << std::hex << std::setfill('0');
-        for (uint8_t byte : data) {
-            ss << std::setw(2) << static_cast<int>(byte);
-        }
-
-        std::string binaryDataStr = ss.str();
-        std::cout << "Received binary data: " << binaryDataStr << std::endl;
-        });*/
-
-    connectWebSocket(webSocket, serverAddr);
-    std::cin.get();
+    // Create a Server object and call server_init
+    Server server;
+    server.server_init();
 
     return 0;
 
@@ -573,36 +349,8 @@ int main(int, char**)
         ImGui_ImplWin32_NewFrame();
         ImGui::NewFrame();
 
-        // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
-        if (currentWindow == windows::Demo) {
-            ImGui::ShowDemoWindow();
-        }
-        else if (currentWindow == windows::Test) {
-            /*iResult = recv(ConnectSocket, recvbuf, recvbuflen, 0);
-            if (iResult > 0)
-                std::cout << "Bytes received: " << iResult << std::endl;
-            else if (iResult == 0)
-                std::cout << "Connection closed" << std::endl;
-            else
-                std::cerr << "recv failed: " << WSAGetLastError() << std::endl;*/
-                //static float f = 0.0f;
-                //static int counter = 0;
-
-                //ImGui::Begin("betterscope");                          // Create a window called "Hello, world!" and append into it.
-
-                //ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
-
-                //ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-                //ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
-
-                //if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
-                //    counter++;
-                //ImGui::SameLine();
-                //ImGui::Text("counter = %d", counter);
-
-                //ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-                //ImGui::End();
-        }
+        // All the app logic is here
+        run_app(currentWindow);
 
         // Rendering
         ImGui::Render();
@@ -656,9 +404,8 @@ int main(int, char**)
     ::DestroyWindow(hwnd);
     ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
 
-    // Cleanup
-    //closesocket(ConnectSocket);
-    //WSACleanup();
+    // ImGUI cleanup
+    cleanup();
 
     return 0;
 }

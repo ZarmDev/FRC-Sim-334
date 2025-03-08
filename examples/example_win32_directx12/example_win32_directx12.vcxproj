@@ -156,10 +156,9 @@
     <ClInclude Include="..\..\imgui_internal.h" />
     <ClInclude Include="..\..\backends\imgui_impl_dx12.h" />
     <ClInclude Include="..\..\backends\imgui_impl_win32.h" />
+    <ClInclude Include="app.h" />
     <ClInclude Include="json.hpp" />
-    <ClInclude Include="mpack-common.h" />
-    <ClInclude Include="mpack-writer.h" />
-    <ClInclude Include="mpack.h" />
+    <ClInclude Include="server.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\imgui.cpp" />
@@ -169,10 +168,9 @@
     <ClCompile Include="..\..\imgui_widgets.cpp" />
     <ClCompile Include="..\..\backends\imgui_impl_dx12.cpp" />
     <ClCompile Include="..\..\backends\imgui_impl_win32.cpp" />
+    <ClCompile Include="app.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="mpack-common.c" />
-    <ClCompile Include="mpack.cpp" />
-    <ClCompile Include="mpack_writer.c" />
+    <ClCompile Include="server.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\misc\debuggers\imgui.natstepfilter" />
