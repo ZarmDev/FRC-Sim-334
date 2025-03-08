@@ -27,17 +27,6 @@
 #include <random>
 #include <sstream>
 
-// ???
-
-#ifdef _DEBUG
-#define DX12_ENABLE_DEBUG_LAYER
-#endif
-
-#ifdef DX12_ENABLE_DEBUG_LAYER
-#include <dxgidebug.h>
-#pragma comment(lib, "dxguid.lib")
-#endif
-
 using namespace std;
 
 // Config for example app
@@ -316,8 +305,6 @@ int main(int, char**)
     // Create a Server object and call server_init
     Server server;
     server.server_init();
-
-    return 0;
 
     // Main loop
     bool done = false;

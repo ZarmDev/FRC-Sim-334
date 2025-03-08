@@ -1,9 +1,38 @@
-See BACKENDS and EXAMPLES files in the docs/ folder, or on the web at: https://github.com/ocornut/imgui/tree/master/docs
 
-Backends = Helper code to facilitate integration with platforms/graphics api (used by Examples + should be used by your app).
-Examples = Standalone applications showcasing integration with platforms/graphics api.
+# How to build
 
-Some Examples have extra README files in their respective directory, please check them too!
+1. Set Up Boost in Visual Studio
+Open your Visual Studio project.
 
-Once Dear ImGui is running (in either examples or your own application/game/engine),
-run and refer to ImGui::ShowDemoWindow() in imgui_demo.cpp for the end-user API.
+Go to Project Properties:
+
+Right-click on your project in the Solution Explorer and select Properties.
+
+Navigate to Configuration Properties > C/C++ > General:
+
+Add the path to the Boost include directory (e.g., C:\Boost\boost_1_xx_0) in Additional Include Directories.
+
+Navigate to Configuration Properties > Linker > General:
+
+Add the path to the Boost lib directory (e.g., C:\Boost\lib) in Additional Library Directories.
+
+2. Link Boost Libraries (If Needed)
+If you're using Boost libraries that require linking (e.g., Boost.Serialization), navigate to Configuration Properties > Linker > Input.
+
+Add the required .lib files (e.g., libboost_serialization-vc142-mt-x64-1_xx.lib) to Additional Dependencies.
+
+3. Build Boost (If Required)
+Some Boost libraries are header-only and don't require building (e.g., Boost.SmartPtr).
+
+For libraries that need to be built (e.g., Boost.Serialization), use the b2 tool:
+
+Open a command prompt.
+
+Navigate to the Boost root directory.
+
+Run the following command:
+
+bash
+bootstrap.bat
+b2
+This will build the required Boost binaries.
