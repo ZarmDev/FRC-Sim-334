@@ -11,12 +11,16 @@
 #include <vector>
 #include <variant>
 #include <stdexcept>
+#include <thread> // Required for sleep_for
+#include <chrono> // Required for time units
 
 // Cereal
 #include <cereal/archives/binary.hpp>
 #include <cereal/types/vector.hpp>
 #include <cereal/types/string.hpp>
 #include <cereal/types/variant.hpp>
+#include <cereal/archives/json.hpp>
+
 
 using namespace winrt;
 using namespace Windows::Networking::Sockets;
@@ -38,7 +42,6 @@ using namespace std;
 #pragma comment(lib, "Ws2_32.lib")
 
 #include "server.h"
-#include <chrono>
 
 class NetworkTablesTypeInfo {
 public:
@@ -142,6 +145,102 @@ int getTopicID(string key) {
     return 0;
 }
 
+class Topic {
+public:
+    std::string topic;
+
+    // Default constructor
+    Topic() = default;
+
+    // Constructor with parameter
+    Topic(const std::string& topic) : topic(topic) {}
+
+    // Serialization function
+    template <class Archive>
+    void serialize(Archive& ar) {
+        ar(CEREAL_NVP(topic));
+    }
+};
+
+//void Server::subscribe(string key, MessageWebSocket& webSocket) {
+//    if (webSocket == nullptr) {
+//        std::wcout << L"Error: WebSocket is null" << std::endl;
+//        return;
+//    }
+//
+//    // Create a Topic object
+//    Topic topicObj("/SmartDashboard");
+//
+//    // Create a TopicArray object and add the Topic object to it
+//    TopicArray topicArray;
+//    topicArray.topics.push_back(topicObj);
+//
+//    // Serialize the TopicArray object to a string
+//    std::ostringstream oss;
+//    cereal::BinaryOutputArchive oa(oss);
+//    oa(topicArray);
+//    std::string serialized_message = oss.str();
+//    std::cout << "Serialized message: " << serialized_message << std::endl;
+//
+//    // Convert the serialized string to a byte array
+//    std::vector<uint8_t> byte_array(serialized_message.begin(), serialized_message.end());
+//
+//    // Create a buffer from the byte array
+//    winrt::Windows::Storage::Streams::Buffer buffer(static_cast<uint32_t>(byte_array.size()));
+//    memcpy(buffer.data(), byte_array.data(), byte_array.size());
+//    buffer.Length(static_cast<uint32_t>(byte_array.size()));
+//
+//    // Get the DataWriter properly
+//    DataWriter writer(webSocket.OutputStream());
+//    // Write the buffer
+//    writer.WriteBuffer(buffer);
+//
+//    try {
+//        // Use the asynchronous operation correctly
+//        writer.StoreAsync().get();
+//        writer.DetachStream(); // Important: detach the stream when done
+//        std::wcout << L"Test message sent to server." << std::endl;
+//    }
+//    catch (const winrt::hresult_error& ex) {
+//        std::wcout << L"Error sending message: " << ex.message().c_str() << std::endl;
+//    }
+//}
+
+void Server::subscribe(string key, MessageWebSocket& webSocket) {
+    if (webSocket == nullptr) {
+        std::wcout << L"Error: WebSocket is null" << std::endl;
+        return;
+    }
+
+    // Create a JSON string representing the array with the topic object
+    std::string serialized_message = R"({"topic": "/SmartDashboard"})";
+    std::cout << "Serialized message: " << serialized_message << std::endl;
+
+    // Convert the serialized string to a byte array
+    std::vector<uint8_t> byte_array(serialized_message.begin(), serialized_message.end());
+
+    // Create a buffer from the byte array
+    winrt::Windows::Storage::Streams::Buffer buffer(static_cast<uint32_t>(byte_array.size()));
+    memcpy(buffer.data(), byte_array.data(), byte_array.size());
+    buffer.Length(static_cast<uint32_t>(byte_array.size()));
+
+    // Get the DataWriter properly
+    DataWriter writer(webSocket.OutputStream());
+    // Write the buffer
+    writer.WriteBuffer(buffer);
+
+    try {
+        // Use the asynchronous operation correctly
+        writer.StoreAsync().get();
+        writer.DetachStream(); // Important: detach the stream when done
+        std::wcout << L"Test message sent to server." << std::endl;
+    }
+    catch (const winrt::hresult_error& ex) {
+        std::wcout << L"Error sending message: " << ex.message().c_str() << std::endl;
+    }
+}
+
+
 void Server::updateValue(string key, NTVariant value, MessageWebSocket& webSocket) {
     vector<int> type_info = NetworkTablesTypeInfo::get_network_tables_type_from_object(value);
     int topic_id = getTopicID(key);
@@ -157,13 +256,13 @@ void Server::updateValue(string key, NTVariant value, MessageWebSocket& webSocke
     std::vector<uint8_t> byte_array(serialized_message.begin(), serialized_message.end());
 
     // Create a DataWriter to write to the OutputStream
-    DataWriter writer(webSocket.OutputStream());
+    //DataWriter writer(webSocket.OutputStream());
 
     // Write the byte array to the DataWriter
-    writer.WriteBytes(byte_array);
+    //writer.WriteBytes(byte_array);
 
-    writer.StoreAsync().get();
-    std::wcout << L"Test message sent to server." << std::endl;
+    //writer.StoreAsync().get();
+    //std::wcout << L"Test message sent to server." << std::endl;
 }
 
 void Server::server_init() {
@@ -171,8 +270,8 @@ void Server::server_init() {
 
     // Generate UUID
     std::default_random_engine generator;
-    std::uniform_int_distribution<int> distribution(1, 9999999999);
-    int UUID = distribution(generator);
+    std::uniform_int_distribution<int64_t> distribution(1, 9999999999LL);
+    int64_t UUID = distribution(generator);
 
     // Important variables
     std::string serverBaseAddr = "127.0.0.1";
@@ -186,7 +285,7 @@ void Server::server_init() {
 
     // Set the protocol for the WebSocket connection
     webSocket.Control().SupportedProtocols().Append(L"v4.1.networktables.first.wpi.edu");
-    
+
     // Attach the MessageReceived event handler
     webSocket.MessageReceived([](MessageWebSocket const&, MessageWebSocketMessageReceivedEventArgs const& args) {
         DataReader reader = args.GetDataReader();
@@ -208,36 +307,18 @@ void Server::server_init() {
     });
 
     try {
-        std::vector<int> typeInfo = NetworkTablesTypeInfo::kBoolean;
-        BinaryMessageData data(1, getCurrentTimeMillis(), typeInfo, true);
-        std::cout << "BinaryMessageData created successfully" << std::endl;
-    }
-    catch (const std::exception& e) {
-        std::cerr << e.what() << std::endl;
-    }
-
-    // Connect to the WebSocket server
-    try {
         // Connect to the WebSocket server
         auto connectOperation = webSocket.ConnectAsync(winrt::Windows::Foundation::Uri(winrt::to_hstring(serverAddr)));
-        connectOperation.Completed([this, &webSocket](auto const& asyncInfo, auto const asyncStatus) {
             try {
-                if (asyncStatus == winrt::Windows::Foundation::AsyncStatus::Completed) {
-                    asyncInfo.GetResults();
-                    std::wcout << L"Connected to WebSocket server!" << std::endl;
+                  // Sleep for 3 seconds
+                std::this_thread::sleep_for(std::chrono::seconds(3));
+                  std::wcout << L"Connected to WebSocket server!" << std::endl;
 
-                    // Send a test message to the server
-                    DataWriter writer(webSocket.OutputStream());
-                    writer.WriteString(L"Hello, server!");
-                    writer.StoreAsync().get();
-                    std::wcout << L"Test message sent to server." << std::endl;
+                  // Now that the connection is established, subscribe to the topic
+                  subscribe("SmartDashboard", webSocket);
 
-                    // Keep the application running to receive messages
-                    std::cin.get();
-                }
-                else {
-                    throw winrt::hresult_error(asyncInfo.ErrorCode());
-                }
+                  // Keep the application running to receive messages
+                  std::cin.get();
             }
             catch (const winrt::hresult_error& ex) {
                 std::wcerr << L"WebSocket connection failed: " << ex.message().c_str() << std::endl;
@@ -246,7 +327,6 @@ void Server::server_init() {
             catch (const std::exception& ex) {
                 std::wcerr << L"WebSocket connection failed: " << ex.what() << std::endl;
             }
-            });
     }
     catch (const winrt::hresult_error& ex) {
         std::wcerr << L"WebSocket connection failed: " << ex.message().c_str() << std::endl;

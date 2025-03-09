@@ -30,6 +30,7 @@ public:
     void server_init();
     void serverCleanup();
     void updateValue(std::string key, NTVariant value, MessageWebSocket& webSocket);
+    void subscribe(string key, MessageWebSocket& webSocket);
 private:
     vector<NTVariant> entries;
 };
