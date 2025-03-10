@@ -175,6 +175,7 @@
   <ItemGroup>
     <None Include="..\..\misc\debuggers\imgui.natstepfilter" />
     <None Include="..\README.txt" />
+    <None Include="advantagescope.md" />
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="..\..\misc\debuggers\imgui.natvis" />
