@@ -61,3 +61,10 @@ const typestrIdxLookup: { [id: string]: number } = {
   "float[]": 19,
   "string[]": 20
 };
+
+private ws_setproperties(topic: string, newProperties: { [id: string]: any }) {
+    this.ws_sendJSON("setproperties", {
+      name: topic,
+      update: newProperties
+    });
+  }
